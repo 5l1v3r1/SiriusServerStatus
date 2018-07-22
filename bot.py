@@ -33,13 +33,14 @@ def check():
 
 
 def start(bot, update):
-    print('START')
+    print('START', time.ctime())
     sun_glasses = emojize(":sunglasses:", use_aliases=True)
     text = sun_glasses + ' Hola ' + update.message.chat.first_name + " " + update.message.chat.last_name
     bot.sendMessage(chat_id=update.message.chat_id, text=text, reply_markup=markup)
 
+
 def status(bot, update):
-    print('AUXILIO')
+    print('AUXILIO', time.ctime())
     fire = emojize(":fire:", use_aliases=True)
     good = emojize(":+1:", use_aliases=True)
     skull = emojize(":skull:", use_aliases=True)
@@ -53,15 +54,8 @@ def status(bot, update):
     bot.sendMessage(chat_id=update.message.chat_id, text=text)
 
 
-def sayhi(bot, job):
-    job.context.message.reply_text("hi")
-
-def time(bot, update,job_queue):
-    job = job_queue.run_repeating(sayhi, 15, context=update)
-
-
 def help(bot, update):
-    print('HELP')
+    print('HELP', time.ctime())
     arrow = emojize(":arrow_forward:", use_aliases=True)
     arrow_right = emojize(":arrow_right:", use_aliases=True)    
 
@@ -71,17 +65,17 @@ def help(bot, update):
 
 
 def main():
+    print('STARTING ... ')
     start_handler = CommandHandler('start', start)
     status_handler = CommandHandler('status', status)
     help_handler = CommandHandler('help', help)
     dispatcher = sirius_bot_updater.dispatcher
+    # dispatcher.add_handler(MessageHandler(Filters.text , time, pass_job_queue=True))
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(status_handler)
     dispatcher.add_handler(help_handler)
-
-    dispatcher.add_handler(MessageHandler(Filters.text , time, pass_job_queue=True))
     sirius_bot_updater.start_polling()
-    sirius_bot_updater.idle()
+        
 
     #while True:    
     #    pass
