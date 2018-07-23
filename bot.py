@@ -1,17 +1,21 @@
 from telegram import ReplyKeyboardMarkup
-from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler, ConversationHandler)
+from telegram.ext import Updater, CommandHandler
 from emoji import emojize
 
+import logging
 import json
 import requests
 import time, threading
 
+user = ''
+last = ''
+
+# Token
 
 with open('./token.txt') as file:
     token = file.read()
 
 sirius_bot_updater = Updater(token)
-
 
 CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
 
@@ -19,9 +23,23 @@ reply_keyboard = [['Status', ''], ['', ''], ['Completado']]
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
 
 
+# Emojies
+sun_glasses = emojize(":sunglasses:", use_aliases=True)
+fire = emojize(":fire:", use_aliases=True)
+good = emojize(":+1:", use_aliases=True)
+skull = emojize(":skull:", use_aliases=True)
+
+# Enable logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+
+logger = logging.getLogger(__name__)
+
+
 def check():
-    source = 'http://sirius.utp.edu.co/status/'
-    
+    # source = 'http://sirius.utp.edu.co/status/'
+    source = 'http://localhost:3000/status'
+
     try:
         r = requests.get(source, timeout=5)
     except Exception:
@@ -29,18 +47,67 @@ def check():
 
     res = r.json()
     print(res)
+    global last
+    last = time.ctime()
     return True
 
 
-def start(bot, update):
-    print('START', time.ctime())
-    sun_glasses = emojize(":sunglasses:", use_aliases=True)
-    text = sun_glasses + ' Hola ' + update.message.chat.first_name + " " + update.message.chat.last_name
-    bot.sendMessage(chat_id=update.message.chat_id, text=text, reply_markup=markup)
+def cron_status(bot, job):
+    print('AUXILIO', time.ctime())
+    text = ''
+
+    if check():
+        text = 'Todo anda bien ' + good
+    else:
+        global last
+        text = fire + ' Auxilio  ' + fire + '\n Parece que el servidor está muerto ' + skull + '\n Última conexión: ' + last
+
+    bot.send_message(job.context, text=text)
+
+
+def start(bot, update, job_queue, chat_data):
+    chat_id = update.message.chat_id
+    global user
+    user = update.message.chat.first_name + " " + update.message.chat.last_name
+    job = job_queue.run_repeating(cron_status, 15, context=chat_id)
+    chat_data['job'] = job
+
+    text = sun_glasses + ' Hola ' + user
+
+    update.message.reply_text(text)
+    # update.message.reply_text('Hi! Use /set <seconds> to set a timer')
+
+
+# def alarm(bot, job):
+#     """Send the alarm message."""
+#     bot.send_message(job.context, text='Beep! ' + user)
+
+
+# def set_timer(bot, update, args, job_queue, chat_data):
+#     """Add a job to the queue."""
+#     chat_id = update.message.chat_id
+#     try:
+#         # args[0] should contain the time for the timer in seconds
+#         due = int(args[0])
+#         if due < 0:
+#             update.message.reply_text('Sorry we can not go back to future!')
+#             return
+
+#         # Add job to queue
+#         job = job_queue.run_repeating(alarm, due, context=chat_id)
+#         chat_data['job'] = job
+
+#         update.message.reply_text('Timer successfully set!')
+
+#     except (IndexError, ValueError):
+#         update.message.reply_text('Usage: /set <seconds>')
+
+#     job = job_queue.run_repeating(alarm, due, context=chat_id)
 
 
 def status(bot, update):
     print('AUXILIO', time.ctime())
+    chack = emojize(":check:", use_aliases=True)
     fire = emojize(":fire:", use_aliases=True)
     good = emojize(":+1:", use_aliases=True)
     skull = emojize(":skull:", use_aliases=True)
@@ -49,7 +116,7 @@ def status(bot, update):
     if check():
         text = 'Todo anda bien ' + good
     else:
-        text = fire + ' Auxilio ' + update.message.chat.first_name + " " + update.message.chat.last_name + ' ' + fire + '\n Parece que el servidor está muerto ' + skull
+        text = fire + ' Auxilio ' + fire + '\n Parece que el servidor está muerto ' + skull
 
     bot.sendMessage(chat_id=update.message.chat_id, text=text)
 
@@ -64,21 +131,54 @@ def help(bot, update):
     bot.sendMessage(chat_id=update.message.chat_id, text=text)
 
 
-def main():
-    print('STARTING ... ')
-    start_handler = CommandHandler('start', start)
-    status_handler = CommandHandler('status', status)
-    help_handler = CommandHandler('help', help)
-    dispatcher = sirius_bot_updater.dispatcher
-    # dispatcher.add_handler(MessageHandler(Filters.text , time, pass_job_queue=True))
-    dispatcher.add_handler(start_handler)
-    dispatcher.add_handler(status_handler)
-    dispatcher.add_handler(help_handler)
-    sirius_bot_updater.start_polling()
-        
+def stop(bot, update, chat_data):
+    """Remove the job if the user changed their mind."""
+    if 'job' not in chat_data:
+        update.message.reply_text('No existen tareas')
+        return
 
-    #while True:    
-    #    pass
+    job = chat_data['job']
+    job.schedule_removal()
+    del chat_data['job']
+
+    update.message.reply_text('Revisión desactivada')
+
+
+def error(bot, update, error):
+    """Log Errors caused by Updates."""
+    logger.warning('Update "%s" caused error "%s"', update, error)
+
+
+def main():
+    """Run bot."""
+    print('STARTING ... ', time.ctime())
+    global last
+    last = time.ctime()
+    updater = sirius_bot_updater
+
+    # Get the dispatcher to register handlers
+    dp = updater.dispatcher
+
+    # on different commands - answer in Telegram
+    dp.add_handler(CommandHandler("start", start, pass_job_queue=True, pass_chat_data=True))
+    dp.add_handler(CommandHandler("help", help))
+    # dp.add_handler(CommandHandler("set", set_timer,
+    #                               pass_args=True,
+    #                               pass_job_queue=True,
+    #                               pass_chat_data=True))
+    dp.add_handler(CommandHandler("stop", stop, pass_chat_data=True))
+    dp.add_handler(CommandHandler("status", status))
+
+    # log all errors
+    dp.add_error_handler(error)
+
+    # Start the Bot
+    updater.start_polling()
+
+    # Block until you press Ctrl-C or the process receives SIGINT, SIGTERM or
+    # SIGABRT. This should be used most of the time, since start_polling() is
+    # non-blocking and will stop the bot gracefully.
+    updater.idle()
 
 
 if __name__ == '__main__':

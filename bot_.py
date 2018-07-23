@@ -1,123 +1,85 @@
-# -*- coding: utf-8 -*-
-
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler, ConversationHandler)
 from emoji import emojize
 
-import logging
+import json
+import requests
+import time, threading
 
-#Log in
-#logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-#logger = logging.getLogger(__name__)
+
+with open('./token.txt') as file:
+    token = file.read()
+
+sirius_bot_updater = Updater(token)
+
 
 CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
 
-reply_keyboard = [['Edad' + emojize("yummy :cake:", use_aliases=True), 'Color favorito'], ['Número de hermanos', 'Algunas cosas...'], ['Completado']]
+reply_keyboard = [['Status', ''], ['', ''], ['Completado']]
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
 
-def facts_to_str(user_data):
-    facts = list()
 
-    for key, value in user_data.items():
-        facts.append('{} - {}'.format(key, value))
+def check():
+    source = 'http://sirius.utp.edu.co/status/'
+    
+    try:
+        r = requests.get(source, timeout=5)
+    except Exception:
+        return False
 
-    return "\n".join(facts).join(['\n', '\n'])
+    res = r.json()
+    print(res)
+    return True
 
 
 def start(bot, update):
-    print('START')
-    update.message.reply_text("Hola. Vamos a conversar, cuentame algo", reply_markup=markup)
-
-    return CHOOSING
-
-
-def regular_choice(bot, update, user_data):
-    print('REGULAR')
-    text = update.message.text
-    user_data['choice'] = text
-    update.message.reply_text('Tu {}? Si, me encantaría escuchar!'.format(text.lower()))
-
-    return TYPING_REPLY
+    print('START', time.ctime())
+    sun_glasses = emojize(":sunglasses:", use_aliases=True)
+    text = sun_glasses + ' Hola ' + update.message.chat.first_name + " " + update.message.chat.last_name
+    bot.sendMessage(chat_id=update.message.chat_id, text=text, reply_markup=markup)
 
 
-def custom_choice(bot, update):
-    print('CUSTOM')
-    update.message.reply_text('Bien, enviame la categoría primero, ' 
-                                'por ejemplo, "Habilidad más impresionante"')
+def status(bot, update):
+    print('AUXILIO', time.ctime())
+    fire = emojize(":fire:", use_aliases=True)
+    good = emojize(":+1:", use_aliases=True)
+    skull = emojize(":skull:", use_aliases=True)
+    text = ''
 
-    return TYPING_CHOICE
+    if check():
+        text = 'Todo anda bien ' + good
+    else:
+        text = fire + ' Auxilio ' + update.message.chat.first_name + " " + update.message.chat.last_name + ' ' + fire + '\n Parece que el servidor está muerto ' + skull
 
-
-def received_information(bot, update, user_data):
-    print('RECEIVED')
-    text = update.message.text
-    category = user_data['choice']
-    user_data[category] = text
-    del user_data['choice']
-
-    update.message.reply_text("Esto fue lo que dijiste: " 
-                                "{}" 
-                                "Puedes decirme más o cambiar tu opinión sobre algo.".format(facts_to_str(user_data)), reply_markup=markup)
-
-    return CHOOSING
+    bot.sendMessage(chat_id=update.message.chat_id, text=text)
 
 
-def done(bot, update, user_data):
-    print('DONE')
-    if 'choice' in user_data:
-        del user_data['choice']
+def help(bot, update):
+    print('HELP', time.ctime())
+    arrow = emojize(":arrow_forward:", use_aliases=True)
+    arrow_right = emojize(":arrow_right:", use_aliases=True)    
 
-    update.message.reply_text("Aprendí esto sobre ti: " 
-                                "{}"
-                                "Hasta la próxima.".format(facts_to_str(user_data)))
+    text = " /start    " + arrow_right + " Inicia el bot \n/status    " + arrow_right + " Estado actual del servidor"
 
-    user_data.clear()
-    return ConversationHandler.END
-
-
-def error(bot, update, error):
-    logger.warning('La actualización "%s" provocó el error "%s"', update, error)
+    bot.sendMessage(chat_id=update.message.chat_id, text=text)
 
 
 def main():
-    with open('./token.txt') as file:
-        token = file.read()
+    print('STARTING ... ')
+    start_handler = CommandHandler('start', start)
+    status_handler = CommandHandler('status', status)
+    help_handler = CommandHandler('help', help)
+    dispatcher = sirius_bot_updater.dispatcher
+    # dispatcher.add_handler(MessageHandler(Filters.text , time, pass_job_queue=True))
+    dispatcher.add_handler(start_handler)
+    dispatcher.add_handler(status_handler)
+    dispatcher.add_handler(help_handler)
+    sirius_bot_updater.start_polling()
+        
 
-    updater = Updater(token)
+    #while True:    
+    #    pass
 
-    dp = updater.dispatcher
-
-    conv_handler = ConversationHandler(
-        entry_points = [CommandHandler('start', start)],
-
-        states = {
-            CHOOSING: [RegexHandler('^(Edad|Color favorito|Numero de hermanos)$',
-                                    regular_choice,
-                                    pass_user_data=True),
-                        RegexHandler('^Algunas cosas...$',
-                                    custom_choice),
-                    ],
-            
-            TYPING_CHOICE: [MessageHandler(Filters.text,
-                                            regular_choice,
-                                            pass_user_data=True)
-                            ],
-
-            TYPING_REPLY: [MessageHandler(Filters.text,
-                                            received_information,
-                                            pass_user_data=True),
-                        ],
-        },
-
-        fallbacks = [RegexHandler('^Completado$', done, pass_user_data=True)]
-    )
-
-    dp.add_handler(conv_handler)
-    dp.add_error_handler(error)
-
-    updater.start_polling()
-
-    updater.idle()
 
 if __name__ == '__main__':
     main()
