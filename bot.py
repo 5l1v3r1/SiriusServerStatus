@@ -4,6 +4,7 @@ from emoji import emojize
 
 import json
 import requests
+import time, threading
 
 
 with open('./token.txt') as file:
@@ -32,11 +33,10 @@ def check():
 
 
 def start(bot, update):
+    print('START')
     sun_glasses = emojize(":sunglasses:", use_aliases=True)
-    #print('START')
     text = sun_glasses + ' Hola ' + update.message.chat.first_name + " " + update.message.chat.last_name
     bot.sendMessage(chat_id=update.message.chat_id, text=text, reply_markup=markup)
-
 
 def status(bot, update):
     print('AUXILIO')
@@ -51,6 +51,13 @@ def status(bot, update):
         text = fire + ' Auxilio ' + update.message.chat.first_name + " " + update.message.chat.last_name + ' ' + fire + '\n Parece que el servidor está muerto ' + skull
 
     bot.sendMessage(chat_id=update.message.chat_id, text=text)
+
+
+def sayhi(bot, job):
+    job.context.message.reply_text("hi")
+
+def time(bot, update,job_queue):
+    job = job_queue.run_repeating(sayhi, 15, context=update)
 
 
 def help(bot, update):
@@ -71,8 +78,10 @@ def main():
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(status_handler)
     dispatcher.add_handler(help_handler)
+
+    dispatcher.add_handler(MessageHandler(Filters.text , time, pass_job_queue=True))
     sirius_bot_updater.start_polling()
-        
+    sirius_bot_updater.idle()
 
     #while True:    
     #    pass
