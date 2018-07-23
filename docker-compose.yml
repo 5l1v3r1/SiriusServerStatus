@@ -1,0 +1,16 @@
+version: '3'
+services:
+  botStatus:
+    container_name: botStatus
+    image: python
+    # ports:
+    #   - "3100:3100"
+    volumes:
+      - ./:/bot/
+    command: sh -c "cd /bot && pip install -r requirements.txt && python bot.py"
+    restart: always
+  # mongoWeb:
+  #   container_name: mongoWeb
+  #   image: mongo
+  #   command: sh -c "mongo test-web-sirius --eval \"db.dropDatabase()\""
+  #   restart: always
