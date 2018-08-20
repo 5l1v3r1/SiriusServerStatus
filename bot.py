@@ -37,8 +37,8 @@ logger = logging.getLogger(__name__)
 
 
 def check():
-    # source = 'http://sirius.utp.edu.co/status/'
-    source = 'http://localhost:3000/status'
+    source = 'http://sirius.utp.edu.co/status/'
+    # source = 'http://localhost:3000/status'
 
     try:
         r = requests.get(source, timeout=5)
@@ -69,7 +69,7 @@ def start(bot, update, job_queue, chat_data):
     chat_id = update.message.chat_id
     global user
     user = update.message.chat.first_name + " " + update.message.chat.last_name
-    job = job_queue.run_repeating(cron_status, 15, context=chat_id)
+    job = job_queue.run_repeating(cron_status, 60000, context=chat_id)
     chat_data['job'] = job
 
     text = sun_glasses + ' Hola ' + user
