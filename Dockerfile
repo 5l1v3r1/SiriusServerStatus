@@ -1,4 +1,4 @@
 FROM python:3.5
-COPY . /bot
-CMD pip install -r /bot/requirements.txt
-CMD python /bot/bot.py
+COPY . /
+RUN pip install -r requirements.txt
+CMD python bot.py
