@@ -7,13 +7,18 @@ import json
 import requests
 import time, threading
 
+import os, json
+
+with open('./config.json') as f:
+    data = json.load(f)
+
+config = data['config']
+
 user = ''
 last = ''
 
 # Token
-
-with open('./token.txt') as file:
-    token = file.read()
+token = config['token']
 
 sirius_bot_updater = Updater(token)
 
@@ -37,8 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 def check():
-    source = 'http://sirius.utp.edu.co/status/'
-    # source = 'http://localhost:3000/status'
+    source = config['server']
 
     try:
         r = requests.get(source, timeout=5)
