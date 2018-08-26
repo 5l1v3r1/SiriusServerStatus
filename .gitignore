@@ -2,3 +2,4 @@ env/
 .vscode/
 token.txt
 __pycache__
+config.json
